@@ -113,11 +113,32 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     // MARK: Remote Config
     
     func configureRemoteConfig() {
-        // TODO: configure remote configuration settings
+        remoteConfig = RemoteConfig.remoteConfig()
+        if let remoteConfigSettings = RemoteConfigSettings(developerModeEnabled: true) {
+            remoteConfig.configSettings = remoteConfigSettings
+        }
     }
     
     func fetchConfig() {
-        // TODO: update to the current coniguratation
+        var expirationDuration: Double = 3600
+        if remoteConfig.configSettings.isDeveloperModeEnabled {
+            expirationDuration = 0
+        }
+        remoteConfig.fetch(withExpirationDuration: expirationDuration) { [weak self] (status, error) in
+            if status == .success {
+                print("\tConfiguration Fetched.")
+                self?.remoteConfig.activateFetched()
+                
+                if let friendlyMessageLength = self?.remoteConfig["friendly_msg_length"],
+                    friendlyMessageLength.source != .static,
+                    let messageLength = friendlyMessageLength.numberValue {
+                    self?.msglength = messageLength
+                    print("Message Length: \(messageLength)")
+                }
+            } else {
+                self?.showAlert(title: "Error", message: "Could not retrieve remote configuration")
+            }
+        }
     }
     
     // MARK: Sign In and Out
@@ -140,6 +161,8 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
             
             configureDatabase()
             configureStorage()
+            configureRemoteConfig()
+            fetchConfig()
         }
     }
     
@@ -270,7 +293,6 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
                             cell.setNeedsLayout()
                         }
                     }
-                    
                 }
             } else {
                 cell.textLabel?.text = "\(name): \(text)"
